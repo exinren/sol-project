@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MetaMask Demo</title>
+  <link rel="shortcut icon" href="http://pdmfs.aboshe.cn:23120/favicon.ico" />
+</head>
+<body>
+  <h1>MetaMask 相关 API</h1>
+  <div><input type="button" style="padding: 10px;" value="连接到钱包" onclick="eth_requestAccounts()"/></div>
+  <div><input type="button" style="padding: 10px;" value="转账" onclick="sendTransaction()"/></div>
+  <div><input type="button" style="padding: 10px;" value="移除账户变更通知" onclick="removeAccountsChangedListener()"/></div>
+  <div><input type="button" style="padding: 10px;" value="添加 token 合约资产到钱包" onclick="watchAsset()"/></div>
+  <div><input type="button" style="padding: 10px;" value="转账 ERC20 代币" onclick="sendTransactionToken()"/></div>
+  <script src="./lib/bn.js"></script>
+</body>
+<script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+<script>
+   var connAccount;
+    window.onload = function (){
+      if (typeof window.ethereum !== 'undefined' && ethereum.isMetaMask !== 'undefined') {
+        console.log('MetaMask is installed!');
+        setTimeout(function(){
+            eth_requestAccounts();
+        },500);
+        // 地址更改时收到通知
+        ethereum.on('accountsChanged', onAccountsChanged);
+        // 连接钱包事件
+        ethereum.on('connect', (connectInfo) => {
+          console.log("连接钱包：", connectInfo)
+        });
+        ethereum.on('disconnect', ProviderRpcError => {
+          console.log("断开钱包连接：", ProviderRpcError)
+        });
+      }else{
+        alert('请先安装 MetaMask');
+        return;
+      }
+    };
+    function onAccountsChanged(accounts) {
+      console.log(connAccount);
+      connAccount = accounts[0];
+    }
+    // 连接钱包
+    function eth_requestAccounts() {
+      ethereum.request({method: "eth_requestAccounts"}).then((accounts) => {
+        if (accounts.length === 0) {
+          console.log("Please connect to MetaMask")
+        } else if (accounts[0] != connAccount){
+          connAccount = accounts[0]
+        }
+      }).catch((err) => {
+        if (err.code == 4001) {
+          console.log("Please connect to MetaMask")
+        } else {
+          console.log(err)
+        }
+      });
+    }
+    // 转账
+    function sendTransaction() {
+      // val.toJSON()转为16进制的字符串
+      var val = new BN('1000000000000000000',10)
+      var param = {
+        from: ethereum.selectedAddress,
+        to: '0xaECAC23B2bbB13748c7b507b0df8171061cE4955',
+        value: val.toJSON()
+      }
+      ethereum.request({method: 'eth_sendTransaction', params:[param]}).then(res => {
+        console.log(res)
+      }).catch(err => {
+        console.log(err)
+      })
+    }
+    function removeAccountsChangedListener() {
+      ethereum.removeListener('accountsChanged', onAccountsChanged);
+    }
+    // 添加代币到metamask
+    function watchAsset() {
+      var param = {
+        type: 'ERC20',
+        options: {
+          address: '0xcF291134A8091C1268CCb464227f3E207c98DD48', // The address that the token is at.
+          symbol: 'BSC', // A ticker symbol or shorthand, up to 5 chars.
+          decimals: 18, // The number of decimals in the token
+          image: 'http://pdmfs.aboshe.cn:23120/favicon.ico', // A string url of the token logo
+        }
+      }
+      ethereum.request({method:'wallet_watchAsset', params: param}).then(res => {
+        if (res) {
+          console.log("Add Success")
+        } else {
+          console.log("Add fail")
+        }
+      }).catch(err => {
+        console.log(err)
+      })
+    }
+    // 转账代币
+    function sendTransactionToken() {
+      // val.toJSON()转为16进制的字符串
+      var val = new BN('100000000000000000000', 10)
+      var codeABI = getTransferABI('0x51a08D9797Ad0c58b205bff0AEB127eedF75b5D1', val.toString())
+      console.log(codeABI)
+      var param = {
+        from: ethereum.selectedAddress,
+        to: '0xcF291134A8091C1268CCb464227f3E207c98DD48', // 合约地址
+        data: codeABI
+      }
+      ethereum.request({method: 'eth_sendTransaction', params:[param]}).then(res => {
+        console.log(res)
+      }).catch(err => {
+        console.log(err)
+      })
+    }
+    function getTransferABI(toAddress, tokenAmount) {
+      const web3 = new Web3();
+      const TRANSFER_FUNCTION_ABI = {
+        "inputs": [
+          {
+            "internalType": "address",
+            "name": "_to",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "_value",
+            "type": "uint256"
+          }
+        ],
+        "name": "transfer",
+        "outputs": [
+          {
+            "internalType": "bool",
+            "name": "success",
+            "type": "bool"
+          }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      };
+      return web3.eth.abi.encodeFunctionCall(TRANSFER_FUNCTION_ABI, [
+          toAddress,
+          tokenAmount
+      ]);
+    }
+</script>
+</html>
